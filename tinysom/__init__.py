@@ -1,1 +1,2 @@
-from .tinysom import SOM
+from .tinysom import SOM, SOM_cluster
+

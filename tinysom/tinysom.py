@@ -28,7 +28,7 @@ class SOM(object):
     """
 
     def __init__(self, n_rows, n_cols, neighbourhood='gaussian', n_epochs=10, 
-                 h0_Rmax=0.5, hN_R1=0.01, Rmax=None, initial='pca'):
+                 Rmax=None, initial='pca'):
         """Class constructor.
         
         Parameters
@@ -42,22 +42,16 @@ class SOM(object):
             `gaussian` (default), `exponential`, `linear`, `bubble`.
         n_epochs : int, optional
             Number of training epochs.
-        h0_Rmax : float, optional
-            Initial kernel weight at Rmax.
-        hN_R1 : float, optional
-            Final kernel weight at unit radius (distance to nearest neighbours).
         Rmax : float, optional
             Maximum radius of neighbourhood kernel.
         initial : str, optional
-            Weights initialisation method. One of `random` or `pca`.
+            Weights initialisation method. One of `pca` (default) or `random`.
         """
 
         self.n_rows = n_rows
         self.n_cols = n_cols
         self.neighbourhood = neighbourhood
         self.n_epochs = n_epochs
-        self.h0_Rmax = h0_Rmax
-        self.hN_R1 = hN_R1
         self.Rmax = Rmax
         self.initial = initial
         self.bmus = None
@@ -74,6 +68,9 @@ class SOM(object):
         ixs = np.arange(n_rows*n_cols)       
         rows, cols = ixs % n_cols, ixs // n_cols
         self.d2mat = (rows[:,None]-rows[None,:])**2 + (cols[:,None]-cols[None,:])**2
+
+        # Define kernels based on neighbourhood function and neuron distance matrix
+        self.make_kernels()
 
     def calc_BMUs(self, X):
         """Calculate Best-Matching Units (BMUs) for training data array X.
@@ -152,9 +149,6 @@ class SOM(object):
         else:
             print('initial must be random or pca')
             return None
-
-        # Define kernels based on neighbourhood function
-        self.make_kernels()
 
         for i in tqdm(range(self.n_epochs)):
             # Calculate BMUs for all training vectors
@@ -268,7 +262,7 @@ class SOM_cluster(SOM):
     """
 
     def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='gaussian', 
-                 n_epochs=10, h0_Rmax=0.5, hN_R1=0.01, Rmax=None, initial='pca'):
+                 n_epochs=10, Rmax=None, initial='pca'):
         """Subclass constructor.
         
         Parameters
@@ -277,8 +271,8 @@ class SOM_cluster(SOM):
                 Number of clusters to target for unsupervised clustering.
         """
         
-        super().__init__(n_rows, n_cols, neighbourhood, n_epochs, 
-                         h0_Rmax, hN_R1, Rmax, initial)
+        super().__init__(n_rows, n_cols, neighbourhood, n_epochs, Rmax, initial)
+
         self.n_clusters = n_clusters
         self.neuron_to_label = np.empty(self.n_cols*self.n_rows)
         self.neuron_to_label[:] = np.nan

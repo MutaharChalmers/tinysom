@@ -21,7 +21,7 @@ class SOM(object):
     """
 
     def __init__(self, n_rows, n_cols, neighbourhood='gaussian', metric='dot',
-                 n_epochs=10, Rmax=None, initial='pca'):
+                 n_epochs=10, kernelwt_Rmax=0.2, initial='pca'):
         """Class constructor.
         
         Parameters
@@ -37,9 +37,9 @@ class SOM(object):
             Metric used to calculate BMUs. Options are
             'dot' (default) or 'euclidean'.
         n_epochs : int, optional
-            Number of training epochs.
-        Rmax : float, optional
-            Maximum radius of neighbourhood kernel.
+            Number of training epochs. Defaults to 10.
+        kernelwt_Rmax : float, optional
+            Kernel weight at maximum inter-neuron distance. Defaults to 0.2.
         initial : str, optional
             Weights initialisation method. Options are
             `pca` (default) or `random`.
@@ -50,17 +50,11 @@ class SOM(object):
         self.neighbourhood = neighbourhood
         self.metric = metric
         self.n_epochs = n_epochs
-        self.Rmax = Rmax
+        self.kernelwt_Rmax = kernelwt_Rmax
         self.initial = initial
         self.bmus = None
         self.wts = None
         self.inertia_ = None
-
-        # Set initial neighbourhood radius to be the largest distance in the SOM
-        if Rmax is None:
-            self.Rmax = np.sqrt((self.n_cols-1)**2 + (self.n_rows-1)**2)
-        else:
-            self.Rmax = Rmax
 
         # Calculate distance**2 matrix for neuron array
         ixs = np.arange(n_rows*n_cols)       
@@ -90,17 +84,22 @@ class SOM(object):
         first epoch, and unit radius R1 at the final epoch.
         """ 
 
-        # Sequence from the largest distance across the lattice to the shortest
-        sigs = np.linspace(self.Rmax, 0.5, self.n_epochs)
-        
         # Define kernels based on neighbourhood function
         if self.neighbourhood == 'bubble':
+            Rmax = np.sqrt(self.d2mat.max())
+            sigs = np.linspace(Rmax, 0.5, self.n_epochs)
             self.kernels = np.where(np.sqrt(self.d2mat)[None,:,:]<=sigs[:,None,None], 1, 0)
         elif self.neighbourhood == 'linear':
+            Rmax = np.sqrt(self.d2mat.max())
+            sigs = np.linspace(Rmax, 0.5, self.n_epochs)
             self.kernels = np.clip(1 - np.sqrt(self.d2mat[None,:,:])/sigs[:,None,None], 0, 1)
         elif self.neighbourhood == 'exponential':
+            Rmax = -np.sqrt(self.d2mat.max())/(2*np.log(self.kernelwt_Rmax))
+            sigs = np.linspace(Rmax, 0.5, self.n_epochs)
             self.kernels = np.exp(-(np.sqrt(self.d2mat[None,:,:])/(2*sigs[:,None,None])))
         elif self.neighbourhood == 'gaussian':
+            Rmax = -self.d2mat.max()/(2*np.log(self.kernelwt_Rmax))
+            sigs = np.linspace(Rmax, 0.5, self.n_epochs)
             self.kernels = np.exp(-(self.d2mat[None,:,:]/(2*sigs[:,None,None])))
         else:
             print('Invalid neighbourhood')

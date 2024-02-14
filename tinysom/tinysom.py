@@ -261,26 +261,27 @@ class SOM_cluster(SOM):
         using the `n_clusters` argument.
     """
 
-    def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='gaussian', 
-                 n_epochs=10, Rmax=None, initial='pca'):
+    def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='gaussian',
+                 metric='dot', n_epochs=10, Rmax=None, initial='pca'):
         """Subclass constructor.
-        
+
         Parameters
         ----------
             n_clusters : int
                 Number of clusters to target for unsupervised clustering.
         """
-        
-        super().__init__(n_rows, n_cols, neighbourhood, n_epochs, Rmax, initial)
+
+        super().__init__(n_rows, n_cols, neighbourhood, metric, n_epochs,
+                         Rmax, initial)
 
         self.n_clusters = n_clusters
         self.neuron_to_label = np.empty(self.n_cols*self.n_rows)
         self.neuron_to_label[:] = np.nan
         self.labels_ = None
-        
+
     def fit(self, X, y=None):
         """Modified fit function for clustering.
-        
+
         Input array X should be in the standard format, i.e.
         rows (axis 0) are instances, columns (axis 1) are features.
         If training data y is passed to this function, the `n_clusters`
@@ -306,14 +307,14 @@ class SOM_cluster(SOM):
         # Supervised clustering/classification
         else:
             y = np.array(y)
-            
+
             # Define mapping from neurons to classes using majority vote
             for i in range(self.n_cols*self.n_rows):
                 labels_i = y[self.bmus==i]
                 values, counts = np.unique(labels_i, return_counts=True)
                 if counts.size > 0:
                     self.neuron_to_label[i] = values[np.argmax(counts)]
-            
+
             # Backfill nans in neuron_to_label with the closest non-nan neuron
             # Fill all nan neurons columns in feature distance matrix with large number
             dmat_nonan = np.where(np.isnan(self.neuron_to_label), np.inf, self.dmat)
@@ -326,14 +327,14 @@ class SOM_cluster(SOM):
 
     def predict(self, X):
         """Predict classes of data.
-        
+
         Unsupervised clusers unless model was trained supervised.
-        
+
         Parameters
         ----------
             X : ndarray
                 Training data, with rows as instances, columns as features.
-                
+
         Returns
         -------
             predicted : ndarray

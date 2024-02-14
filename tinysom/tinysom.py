@@ -11,13 +11,6 @@ class SOM(object):
 
     Attributes
     ----------
-    n_rows : int
-        Number of rows of neurons.
-    n_cols : int
-        Number of columns of neurons.
-    neighbourhood : str, optional
-        Form of neighbourhood function on SOM. `gaussian` by default,
-        with options `exponential`, `linear`, `gaussian`.
     bmus : ndarray
         1D array of Best Matching Units (BMUs) for each training instance.
     wts: ndarray
@@ -27,8 +20,8 @@ class SOM(object):
         The sum of squared distances between each data point and its BMU.
     """
 
-    def __init__(self, n_rows, n_cols, neighbourhood='gaussian', n_epochs=10, 
-                 Rmax=None, initial='pca'):
+    def __init__(self, n_rows, n_cols, neighbourhood='gaussian', metric='dot',
+                 n_epochs=10, Rmax=None, initial='pca'):
         """Class constructor.
         
         Parameters
@@ -38,19 +31,24 @@ class SOM(object):
         n_cols : int
             Number of columns in SOM.
         neighbourhood : str, optional
-            Form of neighbourhood function on SOM. Options available:
+            Form of neighbourhood function on SOM. Options are
             `gaussian` (default), `exponential`, `linear`, `bubble`.
+        metric : str
+            Metric used to calculate BMUs. Options are
+            'dot' (default) or 'euclidean'.
         n_epochs : int, optional
             Number of training epochs.
         Rmax : float, optional
             Maximum radius of neighbourhood kernel.
         initial : str, optional
-            Weights initialisation method. One of `pca` (default) or `random`.
+            Weights initialisation method. Options are
+            `pca` (default) or `random`.
         """
 
         self.n_rows = n_rows
         self.n_cols = n_cols
         self.neighbourhood = neighbourhood
+        self.metric = metric
         self.n_epochs = n_epochs
         self.Rmax = Rmax
         self.initial = initial
@@ -80,8 +78,10 @@ class SOM(object):
             X : ndarray
                 Training data, with rows as instances, columns as features.
         """
-
-        return ((X[:,None]-self.wts)**2).sum(axis=2).argmin(axis=1)
+        if self.metric == 'dot':
+            return (self.wts[:,None]*X[None,:]).sum(axis=2).argmax(axis=0)
+        else:
+            return ((X[:,None]-self.wts)**2).sum(axis=2).argmin(axis=1)
 
     def make_kernels(self):
         """Generate kernels for all epochs. 

@@ -20,8 +20,8 @@ class SOM(object):
         The sum of squared distances between each data point and its BMU.
     """
 
-    def __init__(self, n_rows, n_cols, neighbourhood='gaussian', metric='dot',
-                 n_epochs=10, kernelwt_Rmax=0.2, initial='pca'):
+    def __init__(self, n_rows, n_cols, neighbourhood='gaussian', metric='cosine',
+                 n_epochs=10, kernelwt_Rmax=0.1, initial='pca'):
         """Class constructor.
         
         Parameters
@@ -35,11 +35,11 @@ class SOM(object):
             `gaussian` (default), `exponential`, `linear`, `bubble`.
         metric : str
             Metric used to calculate BMUs. Options are
-            'dot' (default) or 'euclidean'.
+            'cosine' (default) or 'euclidean'.
         n_epochs : int, optional
             Number of training epochs. Defaults to 10.
         kernelwt_Rmax : float, optional
-            Kernel weight at maximum inter-neuron distance. Defaults to 0.2.
+            Kernel weight at maximum inter-neuron distance. Defaults to 0.1.
         initial : str, optional
             Weights initialisation method. Options are
             `pca` (default) or `random`.
@@ -72,8 +72,10 @@ class SOM(object):
             X : ndarray
                 Training data, with rows as instances, columns as features.
         """
-        if self.metric == 'dot':
-            return (self.wts[:,None]*X[None,:]).sum(axis=2).argmax(axis=0)
+        if self.metric == 'cosine':
+            return ((self.wts @ X.T) / np.outer(np.linalg.norm(self.wts, axis=1),
+                                                np.linalg.norm(X, axis=1))
+                   ).argmax(axis=0)
         else:
             return ((X[:,None]-self.wts)**2).sum(axis=2).argmin(axis=1)
 
@@ -88,11 +90,11 @@ class SOM(object):
         if self.neighbourhood == 'bubble':
             Rmax = np.sqrt(self.d2mat.max())
             sigs = np.linspace(Rmax, 0.5, self.n_epochs)
-            self.kernels = np.where(np.sqrt(self.d2mat)[None,:,:]<=sigs[:,None,None], 1, 0)
+            self.kernels = np.where(np.sqrt(self.d2mat)[None,:,:]<=sigs[:,None,None], 1, 1e-12)
         elif self.neighbourhood == 'linear':
             Rmax = np.sqrt(self.d2mat.max())
             sigs = np.linspace(Rmax, 0.5, self.n_epochs)
-            self.kernels = np.clip(1 - np.sqrt(self.d2mat[None,:,:])/sigs[:,None,None], 0, 1)
+            self.kernels = np.clip(1 - np.sqrt(self.d2mat[None,:,:])/sigs[:,None,None], 1e-12, 1)
         elif self.neighbourhood == 'exponential':
             Rmax = -np.sqrt(self.d2mat.max())/(2*np.log(self.kernelwt_Rmax))
             sigs = np.linspace(Rmax, 0.5, self.n_epochs)
@@ -261,7 +263,7 @@ class SOM_cluster(SOM):
     """
 
     def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='gaussian',
-                 metric='dot', n_epochs=10, Rmax=None, initial='pca'):
+                 metric='cosine', n_epochs=10, kernelwt_Rmax=0.1, initial='pca'):
         """Subclass constructor.
 
         Parameters
@@ -271,7 +273,7 @@ class SOM_cluster(SOM):
         """
 
         super().__init__(n_rows, n_cols, neighbourhood, metric, n_epochs,
-                         Rmax, initial)
+                         kernelwt_Rmax, initial)
 
         self.n_clusters = n_clusters
         self.neuron_to_label = np.empty(self.n_cols*self.n_rows)

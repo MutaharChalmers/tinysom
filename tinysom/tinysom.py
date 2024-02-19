@@ -76,8 +76,10 @@ class SOM(object):
             return ((self.wts @ X.T) / np.outer(np.linalg.norm(self.wts, axis=1),
                                                 np.linalg.norm(X, axis=1))
                    ).argmax(axis=0)
-        else:
+        elif self.metric == 'euclidean':
             return ((X[:,None]-self.wts)**2).sum(axis=2).argmin(axis=1)
+        else:
+            return None
 
     def make_kernels(self):
         """Generate kernels for all epochs. 

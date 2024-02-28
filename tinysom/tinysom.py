@@ -190,7 +190,7 @@ class SOM(object):
         if self.wts is None:
             print('Train SOM before classifying')
             return None
-        return self.bmus
+        return self.calc_BMUs(X)
 
     def umatrix(self, figsize=(6,6)):
         """Plot U-matrix."""
@@ -252,7 +252,7 @@ class SOM(object):
 
 
 class SOM_cluster(SOM):
-    """Subclass of SOM object for supervised or unsupervised clustering.
+    """Subclass of SOM object for unsupervised clustering.
 
     Uses SOM twice, first to cluster input data to a general map of arbitrary 
     size, and again to the target number of clusters.
@@ -287,8 +287,73 @@ class SOM_cluster(SOM):
 
         Input array X should be in the standard format, i.e.
         rows (axis 0) are instances, columns (axis 1) are features.
-        If training data y is passed to this function, the `n_clusters`
-        attribute is overridden.
+
+        Parameters
+        ----------
+            X : ndarray
+                Training data, with rows as instances, columns as features.
+            y : Ignored
+                Not used, present here for API consistency by convention.
+        """
+
+        super().fit(X)
+
+        # A linear SOM instance to cluster the weights vectors
+        som = SOM(1, self.n_clusters)
+        som.fit(self.wts)
+        self.neuron_to_label[:] = som.bmus
+        self.labels_ = som.bmus[self.bmus]
+
+    def predict(self, X):
+        """Predict clusters of data.
+
+        Parameters
+        ----------
+            X : ndarray
+                Training data, with rows as instances, columns as features.
+
+        Returns
+        -------
+            cluster : ndarray
+                Predicted cluster labels.
+        """
+
+        if np.isnan(self.neuron_to_label).all():
+            print('Fit SOM clusterer before predicting')
+            return None
+
+        bmus = self.calc_BMUs(X)
+        return self.neuron_to_label[bmus]
+
+
+class SOM_classify(SOM):
+    """Subclass of SOM object for supervised classification.
+
+    Uses SOM twice, first to cluster input data to a general map of arbitrary
+    size, and again to the target number of clusters.
+
+    Attributes
+    ----------
+    labels_: ndarray
+        Cluster labels derived from supervised classification.
+    """
+
+    def __init__(self, n_rows, n_cols, neighbourhood='gaussian',
+                 metric='cosine', n_epochs=10, kernelwt_Rmax=0.1, initial='pca'):
+        """Subclass constructor."""
+
+        super().__init__(n_rows, n_cols, neighbourhood, metric, n_epochs,
+                         kernelwt_Rmax, initial)
+
+        self.neuron_to_label = np.empty(self.n_cols*self.n_rows)
+        self.neuron_to_label[:] = np.nan
+        self.labels_ = None
+
+    def fit(self, X, y):
+        """Modified fit function for classification.
+
+        Input array X should be in the standard format, i.e.
+        rows (axis 0) are instances, columns (axis 1) are features.
 
         Parameters
         ----------
@@ -300,38 +365,28 @@ class SOM_cluster(SOM):
 
         super().fit(X)
 
-        # Unsupervised clustering
-        if y is None:
-            # A linear SOM instance to cluster the weights vectors
-            som = SOM(1, self.n_clusters)
-            som.fit(self.wts)
-            self.neuron_to_label[:] = som.bmus
-            self.labels_ = som.bmus[self.bmus]
-        # Supervised clustering/classification
-        else:
-            y = np.array(y)
+        # Supervised classification
+        y = np.array(y)
 
-            # Define mapping from neurons to classes using majority vote
-            for i in range(self.n_cols*self.n_rows):
-                labels_i = y[self.bmus==i]
-                values, counts = np.unique(labels_i, return_counts=True)
-                if counts.size > 0:
-                    self.neuron_to_label[i] = values[np.argmax(counts)]
+        # Define mapping from neurons to classes using majority vote
+        for i in range(self.n_cols*self.n_rows):
+            labels_i = y[self.bmus==i]
+            values, counts = np.unique(labels_i, return_counts=True)
+            if counts.size > 0:
+                self.neuron_to_label[i] = values[np.argmax(counts)]
 
-            # Backfill nans in neuron_to_label with the closest non-nan neuron
-            # Fill all nan neurons columns in feature distance matrix with large number
-            dmat_nonan = np.where(np.isnan(self.neuron_to_label), np.inf, self.dmat)
-            
-            # Get column indices of nearest neurons for all rows and backfill
-            nearest_nonan = dmat_nonan.argsort(axis=1)[:,0]
-            self.neuron_to_label = np.where(np.isnan(self.neuron_to_label), 
-                                            self.neuron_to_label[nearest_nonan], 
-                                            self.neuron_to_label)
+        # Backfill nans in neuron_to_label with the closest non-nan neuron
+        # Fill all nan neurons columns in feature distance matrix with large number
+        dmat_nonan = np.where(np.isnan(self.neuron_to_label), np.inf, self.dmat)
+
+        # Get column indices of nearest neurons for all rows and backfill
+        nearest_nonan = dmat_nonan.argsort(axis=1)[:,0]
+        self.neuron_to_label = np.where(np.isnan(self.neuron_to_label),
+                                        self.neuron_to_label[nearest_nonan],
+                                        self.neuron_to_label)
 
     def predict(self, X):
-        """Predict classes of data.
-
-        Unsupervised clusers unless model was trained supervised.
+        """Predict labels of data.
 
         Parameters
         ----------
@@ -340,7 +395,7 @@ class SOM_cluster(SOM):
 
         Returns
         -------
-            predicted : ndarray
+            labels : ndarray
                 Predicted labels.
         """
 

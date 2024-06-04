@@ -260,8 +260,7 @@ class SOM_cluster(SOM):
     Attributes
     ----------
     labels_: ndarray
-        Cluster labels derived from **unsupervised** clustering, activated by 
-        using the `n_clusters` argument.
+        Cluster labels derived from unsupervised clustering.
     """
 
     def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='gaussian',
@@ -328,9 +327,6 @@ class SOM_cluster(SOM):
 
 class SOM_classify(SOM):
     """Subclass of SOM object for supervised classification.
-
-    Uses SOM twice, first to cluster input data to a general map of arbitrary
-    size, and again to the target number of clusters.
 
     Attributes
     ----------

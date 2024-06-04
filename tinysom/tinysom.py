@@ -16,12 +16,12 @@ class SOM(object):
     wts: ndarray
         SOM weights (codebook). Rows correspond to neurons, columns to
         weights in feature space.
-    inertia_: float
-        The sum of squared distances between each data point and its BMU.
+    inertia_: ndarray
+        The sums of squared distances between each data point and its BMU.
     """
 
-    def __init__(self, n_rows, n_cols, neighbourhood='gaussian', metric='cosine',
-                 n_epochs=10, kernelwt_Rmax=0.1, initial='pca'):
+    def __init__(self, n_rows, n_cols, neighbourhood='linear', metric='euclidean',
+                 n_epochs=10, kernelwt_Rmax=0.5, initial='pca', feature_dropout_factor=0.):
         """Class constructor.
         
         Parameters
@@ -32,17 +32,20 @@ class SOM(object):
             Number of columns in SOM.
         neighbourhood : str, optional
             Form of neighbourhood function on SOM. Options are
-            `gaussian` (default), `exponential`, `linear`, `bubble`.
+            `linear` (default), `exponential`, `gaussian`, `bubble`.
         metric : str
             Metric used to calculate BMUs. Options are
-            'cosine' (default) or 'euclidean'.
+            'euclidean' (default) or 'cosine'.
         n_epochs : int, optional
             Number of training epochs. Defaults to 10.
         kernelwt_Rmax : float, optional
-            Kernel weight at maximum inter-neuron distance. Defaults to 0.1.
+            Kernel weight at maximum inter-neuron distance. Defaults to 0.5.
         initial : str, optional
             Weights initialisation method. Options are
             `pca` (default) or `random`.
+        feature_dropout_factor : float
+            Fraction of features to drop randomly for each record and
+            training epoch.
         """
 
         self.n_rows = n_rows
@@ -52,9 +55,10 @@ class SOM(object):
         self.n_epochs = n_epochs
         self.kernelwt_Rmax = kernelwt_Rmax
         self.initial = initial
+        self.feature_dropout_factor = feature_dropout_factor
         self.bmus = None
         self.wts = None
-        self.inertia_ = None
+        self.inertia_ = -1*np.ones(self.n_epochs)
 
         # Calculate distance**2 matrix for neuron array
         ixs = np.arange(n_rows*n_cols)       
@@ -78,6 +82,31 @@ class SOM(object):
                    ).argmax(axis=0)
         elif self.metric == 'euclidean':
             return ((X[:,None]-self.wts)**2).sum(axis=2).argmin(axis=1)
+        else:
+            return None
+
+    def calc_BMUs_dropout(self, X):
+        """Calculate Best-Matching Units (BMUs) for training data array X,
+        applying feature dropout.
+
+        Parameters
+        ----------
+            X : ndarray
+                Training data, with rows as instances, columns as features.
+        """
+
+        keepfac = 1 - self.feature_dropout_factor
+        n_recs, n_feats = X.shape
+        n_feats_kept = int(n_feats*keepfac)
+        cols = np.random.randint(0, n_feats, size=(n_recs, n_feats_kept))
+        rows = np.repeat(np.array(range(n_recs))[:,None], n_feats_kept, axis=1)
+
+        if self.metric == 'cosine':
+            return ((self.wts @ X.T) / np.outer(np.linalg.norm(self.wts, axis=1),
+                                                np.linalg.norm(X, axis=1))
+                   ).argmax(axis=0)
+        elif self.metric == 'euclidean':
+            return ((X[None,rows,cols] - self.wts[:,cols])**2).sum(axis=2).argmin(axis=0)
         else:
             return None
 
@@ -153,25 +182,33 @@ class SOM(object):
             print('initial must be random or pca')
             return None
 
+        # Calculate initial BMUs
+        if self.feature_dropout_factor > np.spacing(1):
+            self.bmus = self.calc_BMUs_dropout(X)
+        else:
+            self.bmus = self.calc_BMUs(X)
+
         for i in tqdm(range(self.n_epochs)):
-            # Calculate BMUs for all training vectors
-            bmus = self.calc_BMUs(X)
-            
             # Calculate numerator (BMU kernel-weighted sum of training data)
-            num = (X[:,None] * self.kernels[i][bmus][:,:,None]).sum(axis=0)
+            num = (X[:,None]*self.kernels[i][self.bmus][:,:,None]).sum(axis=0)
             
-            # Calculate denominator (sum of BMU weights for training data) and update weights
-            denom = self.kernels[i][bmus].sum(axis=0)
+            # Calculate denominator (sum of BMU weights for training data)
+            denom = self.kernels[i][self.bmus].sum(axis=0)
+
+            # Update weights
             self.wts = num/denom[:,None]
+
+            # Update BMUs for all training vectors
+            if self.feature_dropout_factor > np.spacing(1):
+                self.bmus = self.calc_BMUs_dropout(X)
+            else:
+                self.bmus = self.calc_BMUs(X)
             
-        # Update BMUs
-        self.bmus = self.calc_BMUs(X)
+            # Update inertia array
+            self.inertia_[i] = ((X - self.wts[self.bmus])**2).sum()
         
         # Calculate distance matrix of neurons in feature space
         self.dmat = np.sqrt(((self.wts[:,None] - self.wts)**2).sum(axis=2))
-
-        # Update inertia
-        self.inertia_ = ((X - self.wts[self.bmus])**2).sum()
 
     def predict(self, X):
         """Calculate Best-Matching Units (BMUs) for training data array X.
@@ -263,8 +300,9 @@ class SOM_cluster(SOM):
         Cluster labels derived from unsupervised clustering.
     """
 
-    def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='gaussian',
-                 metric='cosine', n_epochs=10, kernelwt_Rmax=0.1, initial='pca'):
+    def __init__(self, n_clusters, n_rows, n_cols, neighbourhood='linear',
+                 metric='euclidean', n_epochs=10, kernelwt_Rmax=0.5,
+                 initial='pca', feature_dropout_factor=0.):
         """Subclass constructor.
 
         Parameters
@@ -274,7 +312,7 @@ class SOM_cluster(SOM):
         """
 
         super().__init__(n_rows, n_cols, neighbourhood, metric, n_epochs,
-                         kernelwt_Rmax, initial)
+                         kernelwt_Rmax, initial, feature_dropout_factor)
 
         self.n_clusters = n_clusters
         self.neuron_to_label = np.empty(self.n_cols*self.n_rows)
@@ -334,12 +372,13 @@ class SOM_classify(SOM):
         Cluster labels derived from supervised classification.
     """
 
-    def __init__(self, n_rows, n_cols, neighbourhood='gaussian',
-                 metric='cosine', n_epochs=10, kernelwt_Rmax=0.1, initial='pca'):
+    def __init__(self, n_rows, n_cols, neighbourhood='linear',
+                 metric='euclidean', n_epochs=10, kernelwt_Rmax=0.5,
+                 initial='pca', feature_dropout_factor=0.):
         """Subclass constructor."""
 
         super().__init__(n_rows, n_cols, neighbourhood, metric, n_epochs,
-                         kernelwt_Rmax, initial)
+                         kernelwt_Rmax, initial, feature_dropout_factor)
 
         self.neuron_to_label = np.empty(self.n_cols*self.n_rows)
         self.neuron_to_label[:] = np.nan

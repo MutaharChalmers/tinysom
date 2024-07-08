@@ -111,13 +111,6 @@ class SOM(object):
         # Define based on neighbourhood function and neuron distance matrix
         self.make_kernels()
 
-        # Make one-hot array of units to be dropped if applicable
-        if (self.unit_dropout_factor > np.spacing(1)):
-            unit_keepfac = 1 - self.unit_dropout_factor
-            self.units_dropped = np.zeros(self.n_cols*self.n_rows)
-            to_drop = int(self.n_cols*self.n_rows*self.unit_dropout_factor)
-            self.units_dropped[:to_drop] = 1
-
     def calc_BMUs(self, X):
         """Calculate Best-Matching Units (BMUs) for training data array X.
         
@@ -218,12 +211,13 @@ class SOM(object):
             return None
 
         # Calculate initial BMUs
-        if self.units_dropped is None:
-            self.bmus = self.calc_BMUs(X).argmin(axis=1)
-        else:
-            np.random.shuffle(self.units_dropped)
-            self.bmus = np.where(self.units_dropped, np.inf, self.calc_BMUs(X)
-                                ).argmin(axis=1)
+        self.bmus = self.calc_BMUs(X).argmin(axis=1)
+
+        # Make unit dropout boolean mask for all epochs
+        if self.unit_dropout_factor > np.spacing(1):
+            ijk = (self.n_epochs, X.shape[0], self.n_rows*self.n_cols)
+            self.units_dropped = np.random.uniform(size=ijk
+                                                   )<=self.unit_dropout_factor
 
         if verbose:
             epochs = tqdm(range(self.n_epochs))
@@ -240,11 +234,10 @@ class SOM(object):
             self.wts = num/denom[:,None]
 
             # Update BMUs for all training vectors
-            if self.units_dropped is None:
+            if self.unit_dropout_factor < np.spacing(1):
                 self.bmus = self.calc_BMUs(X).argmin(axis=1)
             else:
-                np.random.shuffle(self.units_dropped)
-                self.bmus = np.where(self.units_dropped, np.inf, 
+                self.bmus = np.where(self.units_dropped[i], np.inf,
                                      self.calc_BMUs(X)).argmin(axis=1)
             
             # Update inertia array

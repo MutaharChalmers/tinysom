@@ -172,7 +172,7 @@ class SOM(object):
             print('Invalid neighbourhood')
             return None
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, verbose=True):
         """Train SOM on input data array X using the batch algorithm.
         
         Input array X should be in the standard format, i.e.
@@ -184,6 +184,8 @@ class SOM(object):
                 Training data, with rows as instances, columns as features.
             y : Ignored
                 Not used, present here for API consistency by convention.
+            verbose : boolean
+                Track epochs using tqdm or not.
         """
         
         # Initialise SOM weights as a random array or using PCA
@@ -223,7 +225,11 @@ class SOM(object):
             self.bmus = np.where(self.units_dropped, np.inf, self.calc_BMUs(X)
                                 ).argmin(axis=1)
 
-        for i in tqdm(range(self.n_epochs)):
+        if verbose:
+            epochs = tqdm(range(self.n_epochs))
+        else:
+            epochs = range(self.n_epochs)
+        for i in epochs:
             # Calculate numerator (BMU kernel-weighted sum of training data)
             num = (X[:,None]*self.kernels[i][self.bmus][:,:,None]).sum(axis=0)
             

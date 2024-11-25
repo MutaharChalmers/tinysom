@@ -59,10 +59,10 @@ class SOM(object):
         initial : str, optional
             Weights initialisation method. Options are
             `pca` (default) or `random`.
-        unit_dropout_factor : float
+        unit_dropout_factor : float, optional
             Fraction of units to drop randomly for each record and
             training epoch.
-        feature_dropout_factor : float
+        feature_dropout_factor : float, optional
             Fraction of features to drop randomly for each record and
             training epoch.
         """
@@ -120,8 +120,10 @@ class SOM(object):
                 Training data, with rows as instances, columns as features.
         """
         if self.metric == 'cosine':
-            return -(X@self.wts.T)/np.outer(np.linalg.norm(X, axis=1),
-                                            np.linalg.norm(self.wts, axis=1))
+            num = -(X@self.wts.T)
+            denom = np.outer(np.linalg.norm(X, axis=1),
+                             np.linalg.norm(self.wts, axis=1))
+            return num/denom
         elif self.metric == 'euclidean':
             return ((X[:,None]-self.wts)**2).sum(axis=2)
         else:
@@ -224,11 +226,14 @@ class SOM(object):
         else:
             epochs = range(self.n_epochs)
         for i in epochs:
+            # Calculate BMU kernel weights
+            bmu_kern_wts = self.kernels[i][self.bmus]
+
             # Calculate numerator (BMU kernel-weighted sum of training data)
-            num = (X[:,None]*self.kernels[i][self.bmus][:,:,None]).sum(axis=0)
+            num = (X[:,None]*bmu_kern_wts[:,:,None]).sum(axis=0)
             
             # Calculate denominator (sum of BMU weights for training data)
-            denom = self.kernels[i][self.bmus].sum(axis=0)
+            denom = bmu_kern_wts.sum(axis=0)
 
             # Update weights
             self.wts = num/denom[:,None]
@@ -246,6 +251,9 @@ class SOM(object):
         # Calculate U-matrix
         self.umat = np.linalg.norm(self.wts[self.adj_i,:]-
                                    self.wts[self.adj_j,:], axis=1)
+
+        # BMU hits
+        self.hitcount = np.bincount(self.bmus)
 
         # Map quality metrics
         self.quanterr = self.inertia_[-1]/X.shape[0]

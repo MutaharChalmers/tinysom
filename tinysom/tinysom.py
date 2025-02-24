@@ -249,8 +249,14 @@ class SOM(object):
             self.inertia_[i] = ((X - self.wts[self.bmus])**2).sum()
 
         # Calculate U-matrix
-        self.umat = np.linalg.norm(self.wts[self.adj_i,:]-
-                                   self.wts[self.adj_j,:], axis=1)
+	if self.metric == 'euclidean':
+            self.umat = np.linalg.norm(self.wts[self.adj_i,:] -
+                                       self.wts[self.adj_j,:], axis=1)
+	else:
+            num = (self.wts[self.adj_i,:] * self.wts[self.adj_j,:]).sum(axis=1)
+            denom = (np.linalg.norm(self.wts[self.adj_i,:], axis=1) *
+                     np.linalg.norm(self.wts[self.adj_j,:], axis=1))
+	    self.umat = num/denom
 
         # BMU hits
         self.hitcount = np.bincount(self.bmus)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tinysom"
-version = "0.2.3"
+version = "0.2.4"
 description = "Yet another Self-Organising Maps library"
 authors = [
            { name = "Mutahar Chalmers", email = "mutahar.chalmers@gmail.com" },
@@ -24,4 +24,4 @@ dependencies = [ "numpy>=1.18", "scipy>=0.11", "matplotlib>=2.3", "tqdm>=4.63",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/FuzzyDuck79/tinysom"
+"Homepage" = "https://github.com/MutaharChalmers/tinysom"

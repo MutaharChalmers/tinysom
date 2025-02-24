@@ -113,7 +113,7 @@ class SOM(object):
 
     def calc_BMUs(self, X):
         """Calculate Best-Matching Units (BMUs) for training data array X.
-        
+
         Parameters
         ----------
             X : ndarray
@@ -131,11 +131,11 @@ class SOM(object):
             return None
 
     def make_kernels(self):
-        """Generate kernels for all epochs. 
+        """Generate kernels for all epochs.
 
         User-defined kernel weights at the maximum radius Rmax for the
         first epoch, and unit radius R1 at the final epoch.
-        """ 
+        """
 
         dmat = np.sqrt(self.d2mat)
         Rmax = dmat.max()
@@ -169,7 +169,7 @@ class SOM(object):
 
     def fit(self, X, y=None, verbose=True):
         """Train SOM on input data array X using the batch algorithm.
-        
+
         Input array X should be in the standard format, i.e.
         rows (axis 0) are instances, columns (axis 1) are features.
 
@@ -182,7 +182,7 @@ class SOM(object):
             verbose : boolean
                 Track epochs using tqdm or not.
         """
-        
+
         # Initialise SOM weights as a random array or using PCA
         n_samp, n_feat = X.shape
         if self.initial == 'random':
@@ -195,18 +195,18 @@ class SOM(object):
 
             # Variance explained by PCs beyond the first two
             resid_variance = eigvals[:-2].sum()
-            
+
             # Generate Gaussian noise to make up variance
-            noise = np.random.normal(loc=0, scale=np.sqrt(resid_variance), 
+            noise = np.random.normal(loc=0, scale=np.sqrt(resid_variance),
                                      size=(self.n_rows, self.n_cols, n_feat))
-            
+
             # Ranges of row PCs (for EOF1) and column PCs (for EOF2) over SOM
             row_facs = np.linspace(-eigvals[-1], eigvals[-1], self.n_rows)
             col_facs = np.linspace(-eigvals[-2], eigvals[-2], self.n_cols)
             col_facs, row_facs = np.meshgrid(col_facs, row_facs)
-            
-            self.wts = ((row_facs[:,:,None] * eigvecs[:,-1]) + 
-                        (col_facs[:,:,None] * eigvecs[:,-2]) + 
+
+            self.wts = ((row_facs[:,:,None] * eigvecs[:,-1]) +
+                        (col_facs[:,:,None] * eigvecs[:,-2]) +
                         noise + X_mean).reshape((self.n_rows*self.n_cols, -1))
         else:
             print('initial must be random or pca')
@@ -231,7 +231,7 @@ class SOM(object):
 
             # Calculate numerator (BMU kernel-weighted sum of training data)
             num = (X[:,None]*bmu_kern_wts[:,:,None]).sum(axis=0)
-            
+
             # Calculate denominator (sum of BMU weights for training data)
             denom = bmu_kern_wts.sum(axis=0)
 
@@ -244,19 +244,19 @@ class SOM(object):
             else:
                 self.bmus = np.where(self.units_dropped[i], np.inf,
                                      self.calc_BMUs(X)).argmin(axis=1)
-            
+
             # Update inertia array
             self.inertia_[i] = ((X - self.wts[self.bmus])**2).sum()
 
         # Calculate U-matrix
-	if self.metric == 'euclidean':
+        if self.metric == 'euclidean':
             self.umat = np.linalg.norm(self.wts[self.adj_i,:] -
                                        self.wts[self.adj_j,:], axis=1)
-	else:
+        else:
             num = (self.wts[self.adj_i,:] * self.wts[self.adj_j,:]).sum(axis=1)
             denom = (np.linalg.norm(self.wts[self.adj_i,:], axis=1) *
                      np.linalg.norm(self.wts[self.adj_j,:], axis=1))
-	    self.umat = num/denom
+            self.umat = num/denom
 
         # BMU hits
         self.hitcount = np.bincount(self.bmus)
@@ -339,7 +339,7 @@ class SOM(object):
 
     def plot_component_planes(self, i=None, cmap='viridis_r', figsize=(4,4)):
         """Plot component planes.
-        
+
         Parameters
         ----------
             i : int, list or ndarray

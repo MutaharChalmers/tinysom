@@ -31,7 +31,7 @@ class SOM(object):
 
     def __init__(self, n_rows, n_cols, topology='hexagonal', neighbourhood='gaussian',
                  metric='euclidean', n_epochs=10, weight_t0_Rmax=0.8, weight_tN_Rmin=0.2,
-                 initial='pca', unit_dropout_factor=0., feature_dropout_factor=0.):
+                 initial='pca'):
         """Class constructor.
 
         Parameters
@@ -59,12 +59,6 @@ class SOM(object):
         initial : str, optional
             Weights initialisation method. Options are
             `pca` (default) or `random`.
-        unit_dropout_factor : float, optional
-            Fraction of units to drop randomly for each record and
-            training epoch.
-        feature_dropout_factor : float, optional
-            Fraction of features to drop randomly for each record and
-            training epoch.
         """
 
         self.n_rows = n_rows
@@ -76,9 +70,6 @@ class SOM(object):
         self.weight_t0_Rmax = weight_t0_Rmax
         self.weight_tN_Rmin = weight_t0_Rmax
         self.initial = initial
-        self.unit_dropout_factor = unit_dropout_factor
-        self.units_dropped = None
-        self.feature_dropout_factor = feature_dropout_factor
         self.bmus = None
         self.wts = None
         self.inertia_ = -1*np.ones(self.n_epochs)
@@ -215,12 +206,6 @@ class SOM(object):
         # Calculate initial BMUs
         self.bmus = self.calc_BMUs(X).argmin(axis=1)
 
-        # Make unit dropout boolean mask for all epochs
-        if self.unit_dropout_factor > np.spacing(1):
-            ijk = (self.n_epochs, X.shape[0], self.n_rows*self.n_cols)
-            self.units_dropped = np.random.uniform(size=ijk
-                                                   )<=self.unit_dropout_factor
-
         if verbose:
             epochs = tqdm(range(self.n_epochs))
         else:
@@ -239,11 +224,7 @@ class SOM(object):
             self.wts = num/denom[:,None]
 
             # Update BMUs for all training vectors
-            if self.unit_dropout_factor < np.spacing(1):
-                self.bmus = self.calc_BMUs(X).argmin(axis=1)
-            else:
-                self.bmus = np.where(self.units_dropped[i], np.inf,
-                                     self.calc_BMUs(X)).argmin(axis=1)
+            self.bmus = self.calc_BMUs(X).argmin(axis=1)
 
             # Update inertia array
             self.inertia_[i] = ((X - self.wts[self.bmus])**2).sum()
@@ -394,8 +375,7 @@ class SOM_cluster(SOM):
     """
 
     def __init__(self, n_clusters, n_rows, n_cols, topology='hexagonal', neighbourhood='gaussian',
-                 metric='euclidean', n_epochs=10, weight_t0_Rmax=0.1, weight_tN_Rmin=0.1,
-                 initial='pca', unit_dropout_factor=0., feature_dropout_factor=0.):
+                 metric='euclidean', n_epochs=10, weight_t0_Rmax=0.1, weight_tN_Rmin=0.1, initial='pca'):
         """Subclass constructor.
 
         Parameters
@@ -405,7 +385,7 @@ class SOM_cluster(SOM):
         """
 
         super().__init__(n_rows, n_cols, topology, neighbourhood, metric, n_epochs, weight_t0_Rmax,
-                         weight_tN_Rmin, initial, unit_dropout_factor, feature_dropout_factor)
+                         weight_tN_Rmin, initial)
 
         self.n_clusters = n_clusters
         self.neuron_to_label = np.empty(self.n_cols*self.n_rows)
@@ -462,12 +442,11 @@ class SOM_classify(SOM):
 
     def __init__(self, n_rows, n_cols, topology='hexagonal', neighbourhood='gaussian',
                  metric='euclidean', n_epochs=10, weight_t0_Rmax=0.1, weight_tN_Rmin=0.1,
-                 initial='pca', unit_dropout_factor=0., feature_dropout_factor=0.):
+                 initial='pca'):
         """Subclass constructor."""
 
         super().__init__(n_rows, n_cols, topology, neighbourhood, metric,
-                         n_epochs, weight_t0_Rmax, weight_tN_Rmin, initial,
-                         unit_dropout_factor, feature_dropout_factor)
+                         n_epochs, weight_t0_Rmax, weight_tN_Rmin, initial)
 
         self.neuron_to_label = np.empty(self.ixs.size)
         self.neuron_to_label[:] = np.nan
